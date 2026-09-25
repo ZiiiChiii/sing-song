@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>90・00年代華語金曲搶答王</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { retro: ['"Press Start 2P"', 'cursive'], sans: ['"Noto Sans TC"', 'sans-serif'] } } } }
+    </script>
+    <style>
+        body { background: radial-gradient(circle at center, #240a34 0%, #0a0314 100%); color: #fff; font-family: 'Noto Sans TC', sans-serif; min-height: 100vh; }
+        .neon-text-pink { text-shadow: 0 0 8px #ff007f, 0 0 20px #ff007f; }
+        .neon-text-cyan { text-shadow: 0 0 8px #00f3ff, 0 0 20px #00f3ff; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spinning { animation: spin 2s linear infinite; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes pulse-red { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.7); } 50% { box-shadow: 0 0 0 15px rgba(239,68,68,0); } }
+        .recording-active { animation: pulse-red 1.5s infinite; }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-8px); } 40%,80% { transform: translateX(8px); } }
+        .shake { animation: shake .4s; }
+        @keyframes pop { 0% { transform: scale(.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .pop { animation: pop .3s ease-out; }
+        .view { display: none; }
+        .view.active { display: flex; }
+        input { font-size: 16px; }
+        #qrSmall img, #qrBig img { margin: 0 auto; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-100">
+
+<!-- ====================== 設定說明（尚未填 Firebase 設定時顯示） ====================== -->
+<section id="setupView" class="view flex-col items-center justify-center flex-1 p-6">
+    <div class="max-w-2xl w-full bg-slate-900/90 border border-amber-400/50 rounded-2xl p-6 space-y-4 text-sm leading-relaxed">
+        <h1 class="text-2xl font-black text-amber-300"><i class="fa-solid fa-wrench mr-2"></i>還差一步：設定 Firebase</h1>
+        <p>這個遊戲用 Firebase Realtime Database 讓主螢幕和學生設備即時連線。請打開這個 HTML 檔，找到最上方的 <code class="bg-black/40 px-1 rounded">FIREBASE_CONFIG</code>，把你的 Firebase 設定貼進去。</p>
+        <ol class="list-decimal list-inside space-y-1 text-slate-300">
+            <li>到 Firebase 主控台建立新專案（例如 <b>music-game</b>）。</li>
+            <li>左側「建構 → Realtime Database」→ 建立資料庫（位置選新加坡 asia-southeast1）。</li>
+            <li>在「規則」分頁貼上下方規則並發布。</li>
+            <li>專案設定 → 一般 → 新增網頁應用程式，複製 <code>firebaseConfig</code>（包含 <code>databaseURL</code>）。</li>
+        </ol>
+        <pre class="bg-black/50 rounded-lg p-3 text-xs overflow-x-auto">{
+  "rules": {
+    "rooms": {
+      "$room": { ".read": true, ".write": true }
+    }
+  }
+}</pre>
+    </div>
+</section>
+
+<!-- ====================== 首頁：選身分 ====================== -->
+<section id="landingView" class="view flex-col items-center justify-center flex-1 p-6 gap-8">
+    <div class="text-center">
+        <div class="font-retro text-cyan-300 text-xs mb-3">90s & 00s MANDOPOP QUIZ</div>
+        <h1 class="text-3xl md:text-5xl font-black neon-text-pink text-pink-400">華語金曲搶答王</h1>
+        <p class="text-slate-400 mt-3">大螢幕放歌，大家用自己的設備搶答！</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
+        <button id="goHostBtn" class="p-6 rounded-2xl bg-gradient-to-br from-pink-600 to-purple-700 hover:opacity-90 text-left shadow-xl transition">
+            <i class="fa-solid fa-tv text-3xl mb-3"></i>
+            <div class="text-xl font-black">我是主螢幕</div>
+            <div class="text-sm text-pink-100/80">老師用電腦開房間、播放歌曲</div>
+        </button>
+        <button id="goPlayerBtn" class="p-6 rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-700 hover:opacity-90 text-left shadow-xl transition">
+            <i class="fa-solid fa-mobile-screen-button text-3xl mb-3"></i>
+            <div class="text-xl font-black">我要加入搶答</div>
+            <div class="text-sm text-cyan-100/80">用手機或平板輸入房間代碼</div>
+        </button>
+    </div>
+    <p id="landingMsg" class="text-rose-400 text-sm min-h-[20px]"></p>
+</section>
+
+<!-- ====================== 主螢幕 ====================== -->
+<section id="hostView" class="view flex-col flex-1">
+    <header class="w-full bg-slate-900/80 backdrop-blur border-b border-pink-500/30 sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex justify-between items-center gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-pink-500 to-cyan-400 flex items-center justify-center text-slate-950 text-[9px] font-bold font-retro flex-shrink-0">90<br>00</div>
+                <div class="min-w-0">
+                    <h1 class="text-lg md:text-2xl font-extrabold tracking-wider neon-text-pink text-pink-400 truncate">華語金曲搶答王</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">房間代碼 <span id="hostCodeSmall" class="font-mono text-cyan-300 font-bold"></span> · <span id="connText">連線中…</span></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="showQrBtn" class="px-3 py-1.5 rounded-lg text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 text-yellow-300 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-qrcode"></i><span class="hidden sm:inline">加入方式</span>
+                </button>
+                <button id="playlistModalBtn" class="px-3 py-1.5 rounded-lg text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-400 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-list-check"></i><span class="hidden sm:inline">歌單 (<span id="activeSongCount">0</span>)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="warnBanner" class="hidden max-w-7xl w-full mx-auto mt-4 px-4">
+        <div id="warnBannerText" class="bg-amber-500/15 border border-amber-400/60 text-amber-200 rounded-xl p-4 text-sm leading-relaxed"></div>
+    </div>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <section class="lg:col-span-8 flex flex-col gap-6">
+            <div class="grid grid-cols-3 gap-3 bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                <div class="flex flex-col items-center justify-center border-r border-slate-800">
+                    <span class="text-xs text-slate-400 mb-1">連線設備</span>
+                    <span id="deviceCountDisplay" class="text-2xl md:text-3xl font-black text-pink-400 neon-text-pink">0</span>
+                </div>
+                <div class="flex flex-col items-center justify-center border-r border-slate-800">
+                    <span class="text-xs text-slate-400 mb-1">目前第幾首</span>
+                    <span id="roundDisplay" class="text-2xl md:text-3xl font-black text-yellow-400">0</span>
+                </div>
+                <div class="flex flex-col items-center justify-center min-w-0 px-1">
+                    <span class="text-xs text-slate-400 mb-1">目前領先</span>
+                    <span id="leaderDisplay" class="text-lg md:text-2xl font-black text-cyan-400 neon-text-cyan truncate max-w-full">—</span>
+                </div>
+            </div>
+
+            <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border-2 border-pink-500/50 shadow-2xl">
+                <div id="playerContainer" class="absolute inset-0 w-full h-full opacity-0 pointer-events-none z-0">
+                    <div id="youtube-player" class="w-full h-full"></div>
+                </div>
+
+                <div id="playerMask" class="absolute inset-0 z-10 bg-slate-950 flex flex-col items-center justify-center p-6 bg-[radial-gradient(#1e1b4b_1px,transparent_1px)] [background-size:16px_16px]">
+                    <div class="w-full max-w-sm md:max-w-md bg-gradient-to-br from-amber-800 via-stone-800 to-amber-950 p-4 rounded-xl border-4 border-amber-600/40 shadow-2xl flex flex-col gap-3">
+                        <div class="bg-amber-100 text-slate-900 px-3 py-1.5 rounded font-mono text-xs md:text-sm font-bold flex justify-between items-center">
+                            <span class="truncate max-w-[200px]" id="tapeLabel">A SIDE: 90s & 00s HITS</span>
+                            <span class="text-red-600 text-xs">CHROME</span>
+                        </div>
+                        <div class="bg-slate-900/90 rounded-lg p-3 border-2 border-slate-700 flex justify-around items-center">
+                            <div id="leftReel" class="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-slate-300 bg-slate-800 flex items-center justify-center"><div class="w-8 h-8 rounded-full border-2 border-dashed border-slate-400 bg-slate-700"></div></div>
+                            <div class="h-8 w-24 bg-gradient-to-r from-amber-900/80 via-amber-800 to-amber-900/80 rounded border border-amber-700/50 flex items-center justify-center">
+                                <span id="timeRemainingText" class="text-xs font-mono text-cyan-300">--:--</span>
+                            </div>
+                            <div id="rightReel" class="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-slate-300 bg-slate-800 flex items-center justify-center"><div class="w-8 h-8 rounded-full border-2 border-dashed border-slate-400 bg-slate-700"></div></div>
+                        </div>
+                        <div class="flex justify-between items-center text-xs font-mono text-amber-200/70">
+                            <span class="flex items-center gap-1"><span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span><span id="statusText">播放器載入中...</span></span>
+                            <span>STEREO</span>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex flex-wrap justify-center gap-2">
+                        <span class="text-xs text-slate-400 self-center mr-1">試聽秒數:</span>
+                        <button data-duration="5" class="mode-btn px-3 py-1 rounded-full text-xs font-bold bg-slate-800 border border-slate-700 text-slate-300">5 秒</button>
+                        <button data-duration="10" class="mode-btn px-3 py-1 rounded-full text-xs font-bold bg-pink-600/30 border border-pink-500 text-pink-300">10 秒</button>
+                        <button data-duration="15" class="mode-btn px-3 py-1 rounded-full text-xs font-bold bg-slate-800 border border-slate-700 text-slate-300">15 秒</button>
+                        <button data-duration="full" class="mode-btn px-3 py-1 rounded-full text-xs font-bold bg-slate-800 border border-slate-700 text-slate-300">全曲</button>
+                    </div>
+                </div>
+
+                <div id="revealedOverlay" class="absolute inset-0 z-20 flex flex-col justify-between p-4 hidden pointer-events-none">
+                    <div class="bg-gradient-to-r from-pink-600 to-purple-600 text-white p-3 rounded-lg shadow-lg flex justify-between items-center gap-2 pointer-events-auto">
+                        <div class="min-w-0">
+                            <p id="revealedWinner" class="text-sm text-yellow-200 font-bold truncate">解答揭曉</p>
+                            <h3 id="revealedTitle" class="text-lg md:text-xl font-bold truncate">歌手 - 歌曲名稱</h3>
+                        </div>
+                        <button id="nextSongRevealedBtn" class="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-bold rounded-lg text-sm flex items-center gap-1 flex-shrink-0">
+                            <span>下一首</span><i class="fa-solid fa-forward"></i>
+                        </button>
+                    </div>
+                    <button id="toggleShowVideoBtn" class="self-center bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs px-3 py-1.5 rounded-full pointer-events-auto">
+                        <i class="fa-solid fa-eye mr-1"></i> 顯示/隱藏 YouTube 畫面
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
+                <div class="flex flex-wrap gap-3 justify-center items-center">
+                    <button id="playAudioBtn" disabled class="flex-1 min-w-[140px] py-3 px-4 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-play text-lg"></i><span>播放片段（開放搶答）</span>
+                    </button>
+                    <button id="giveUpBtn" class="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold rounded-xl flex items-center gap-2 active:scale-95">
+                        <i class="fa-solid fa-flag"></i><span>沒人答對 / 公布答案</span>
+                    </button>
+                    <button id="nextSongBtn" class="py-3 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl flex items-center gap-2 active:scale-95">
+                        <span>下一首</span><i class="fa-solid fa-forward"></i>
+                    </button>
+                </div>
+                <p id="hostMsg" class="text-xs text-center text-cyan-400 min-h-[18px]"></p>
+            </div>
+        </section>
+
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-yellow-500/30 flex items-center gap-4">
+                <div id="qrSmall" class="bg-white p-2 rounded-lg flex-shrink-0 w-[112px] h-[112px]"></div>
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-400">掃描 QR code 或輸入代碼加入</p>
+                    <p id="hostCodeBig" class="font-mono font-black text-4xl tracking-[0.2em] text-yellow-300"></p>
+                    <p id="joinUrlText" class="text-[10px] text-slate-500 break-all"></p>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 flex flex-col">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                    <h2 class="font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-ranking-star text-yellow-400"></i>搶答排行榜</h2>
+                    <span id="playerCountText" class="text-xs text-slate-500">0 台設備</span>
+                </div>
+                <div id="leaderboard" class="space-y-2 max-h-[420px] overflow-y-auto no-scrollbar">
+                    <div class="text-center text-slate-500 py-8 text-xs">等待設備加入…</div>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-4 pt-3 border-t border-slate-800">
+                    <button id="resetScoresBtn" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">分數歸零</button>
+                    <button id="clearOfflineBtn" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">移除離線設備</button>
+                    <button id="endRoomBtn" class="text-xs bg-rose-900/60 hover:bg-rose-800 px-3 py-1.5 rounded-lg border border-rose-700 text-rose-200">結束房間</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 flex flex-col h-[260px]">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                    <h2 class="font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-pink-400"></i>作答紀錄</h2>
+                </div>
+                <div id="gameLog" class="flex-1 overflow-y-auto space-y-2 text-sm no-scrollbar">
+                    <div class="empty-hint text-center text-slate-500 py-6 text-xs">按「播放片段」後，學生就可以搶答</div>
+                </div>
+            </div>
+        </section>
+    </main>
+</section>
+
+<!-- ====================== 玩家：加入 ====================== -->
+<section id="joinView" class="view flex-col items-center justify-center flex-1 p-6">
+    <div class="w-full max-w-sm bg-slate-900/90 border border-cyan-500/40 rounded-2xl p-6 space-y-4">
+        <h2 class="text-2xl font-black text-cyan-300 text-center"><i class="fa-solid fa-right-to-bracket mr-2"></i>加入搶答</h2>
+        <div>
+            <label class="text-xs text-slate-400">房間代碼</label>
+            <input id="joinCodeInput" maxlength="4" autocomplete="off" class="w-full mt-1 bg-slate-950 border-2 border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-3 font-mono text-2xl tracking-[0.3em] uppercase text-center focus:outline-none" placeholder="ABCD">
+        </div>
+        <div>
+            <label class="text-xs text-slate-400">設備名稱（組別或名字）</label>
+            <input id="joinNameInput" maxlength="12" autocomplete="off" class="w-full mt-1 bg-slate-950 border-2 border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-3 focus:outline-none" placeholder="例如：第3組、小明">
+        </div>
+        <button id="joinBtn" class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl text-lg">加入！</button>
+        <p id="joinMsg" class="text-sm text-center text-rose-400 min-h-[20px]"></p>
+    </div>
+</section>
+
+<!-- ====================== 玩家：作答 ====================== -->
+<section id="playerView" class="view flex-col flex-1">
+    <header class="bg-slate-900/80 border-b border-cyan-500/30 px-4 py-3 flex justify-between items-center">
+        <div class="min-w-0">
+            <p id="pName" class="font-black text-lg text-cyan-300 truncate"></p>
+            <p class="text-[11px] text-slate-400">房間 <span id="pCode" class="font-mono"></span> · <span id="pConn">連線中…</span></p>
+        </div>
+        <div class="text-right">
+            <p class="text-[11px] text-slate-400">我的分數 / 排名</p>
+            <p class="font-black text-xl"><span id="pScore" class="text-pink-400">0</span> <span class="text-slate-500 text-sm">/</span> <span id="pRank" class="text-yellow-300">-</span></p>
+        </div>
+    </header>
+
+    <div id="pHostOffline" class="hidden bg-amber-500/20 text-amber-200 text-xs text-center py-2">主螢幕目前離線，請等老師重新開啟</div>
+
+    <main class="flex-1 p-4 flex flex-col gap-4 max-w-lg w-full mx-auto">
+        <div id="pStatusCard" class="rounded-2xl p-5 text-center border-2 border-slate-700 bg-slate-900/80">
+            <p id="pRound" class="text-xs text-slate-400 mb-1"></p>
+            <p id="pStatusIcon" class="text-5xl mb-2">⏳</p>
+            <p id="pStatusText" class="text-xl font-black">等待老師開始</p>
+            <p id="pStatusSub" class="text-sm text-slate-400 mt-1"></p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <input id="pGuessInput" disabled autocomplete="off" placeholder="輸入歌名…" class="w-full bg-slate-950 border-2 border-slate-700 focus:border-cyan-400 rounded-xl px-4 py-4 text-lg focus:outline-none disabled:opacity-40">
+            <div class="grid grid-cols-2 gap-3">
+                <button id="pVoiceBtn" disabled class="py-4 rounded-xl bg-slate-800 border border-slate-700 font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-40">
+                    <i class="fa-solid fa-microphone"></i> 用說的
+                </button>
+                <button id="pSubmitBtn" disabled class="py-4 rounded-xl bg-cyan-500 text-slate-950 font-black text-lg flex items-center justify-center gap-2 disabled:opacity-40">
+                    搶答！<i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+            <p id="pFeedback" class="text-center font-bold min-h-[24px]"></p>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800">
+            <p class="text-xs text-slate-400 mb-2"><i class="fa-solid fa-ranking-star text-yellow-400 mr-1"></i>前五名</p>
+            <div id="pTop" class="space-y-1 text-sm"></div>
+        </div>
+    </main>
+</section>
+
+<!-- ====================== 大 QR 視窗 ====================== -->
+<div id="qrModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur flex items-center justify-center p-6 hidden">
+    <div class="bg-slate-900 border border-yellow-400/50 rounded-3xl p-8 text-center max-w-lg w-full">
+        <p class="text-slate-300 mb-4">用手機相機掃描加入</p>
+        <div id="qrBig" class="bg-white p-4 rounded-2xl inline-block"></div>
+        <p class="mt-4 text-slate-400 text-sm">或到網址輸入房間代碼</p>
+        <p id="qrBigCode" class="font-mono font-black text-6xl tracking-[0.25em] text-yellow-300 mt-1"></p>
+        <p id="qrBigUrl" class="text-xs text-slate-500 break-all mt-2"></p>
+        <button id="closeQrBtn" class="mt-6 px-6 py-2 bg-pink-600 hover:bg-pink-500 rounded-xl font-bold">開始遊戲</button>
+    </div>
+</div>
+
+<!-- ====================== 歌單視窗 ====================== -->
+<div id="playlistModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+            <h3 class="text-lg font-bold text-pink-400 flex items-center gap-2"><i class="fa-solid fa-sliders"></i><span>90・00年代金曲庫 & 歌單自訂</span></h3>
+            <button id="closeModalBtn" class="text-slate-400 hover:text-white p-1 text-xl"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 flex-1 overflow-y-auto space-y-6">
+            <div class="flex justify-between items-center flex-wrap gap-2 pb-2 border-b border-slate-800">
+                <span class="text-xs text-slate-400">已勾選 <span id="modalSelectedCount" class="text-pink-400 font-bold">0</span> / <span id="modalTotalCount">0</span> 首</span>
+                <div class="flex gap-2">
+                    <button id="select90Btn" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">只選90年代</button>
+                    <button id="select00Btn" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">只選00年代</button>
+                    <button id="selectAllBtn" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">全選</button>
+                    <button id="deselectAllBtn" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700">取消全選</button>
+                </div>
+            </div>
+            <div id="songChecklist" class="grid grid-cols-1 md:grid-cols-2 gap-2.5"></div>
+            <div class="pt-4 border-t border-slate-800">
+                <h4 class="text-xs font-bold text-yellow-400 tracking-wider mb-3">新增自訂 YouTube 歌曲</h4>
+                <div class="flex flex-col gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <input type="text" id="customTitleInput" placeholder="正確歌曲名稱 (例: 晴天)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500">
+                        <input type="text" id="customArtistInput" placeholder="歌手名稱 (例: 周杰倫)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500">
+                    </div>
+                    <input type="text" id="customUrlInput" placeholder="YouTube 影片網址或 ID" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500">
+                    <button id="addCustomSongBtn" class="bg-gradient-to-r from-pink-500 to-purple-600 font-bold py-2 rounded-lg text-sm hover:opacity-90"><i class="fa-solid fa-plus mr-1"></i> 加入自訂歌曲</button>
+                    <p class="text-[11px] text-slate-500">有些官方 MV 禁止嵌入播放；若加入後無法播放，請改用「動態歌詞」版或 YouTube 自動產生的音樂版。</p>
+                </div>
+            </div>
+        </div>
+        <div class="px-6 py-3 border-t border-slate-800 bg-slate-950/50 flex justify-end">
+            <button id="savePlaylistBtn" class="px-5 py-2 bg-pink-600 hover:bg-pink-500 font-bold rounded-xl text-sm">確定並儲存歌單</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+// =====================================================================
+// ★ 把 Firebase 設定貼在這裡（Firebase 主控台 → 專案設定 → 你的應用程式）
+//   一定要有 databaseURL（建立 Realtime Database 後才會出現）
+// =====================================================================
+const FIREBASE_CONFIG = {
+    apiKey: "",
+    authDomain: "",
+    databaseURL: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, update, get, push, remove, onValue, onChildAdded, onDisconnect, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ===================== 歌曲資料庫（每首 3 支影片，前一支不能播會自動換下一支） =====================
+const DEFAULT_SONGS = [
+    // ---- 90 年代 ----
+    { key: "tinghai",   era: "90", title: "聽海",           artist: "張惠妹",   ids: ["OL_Jf0afdaU", "mLk61pfiHQ0", "4ChZ82y8Tzo"] },
+    { key: "pengyou",   era: "90", title: "朋友",           artist: "周華健",   ids: ["6lbPgfKK7m4", "9M6vpNH-g_k", "JFz0qv29Fzg"] },
+    { key: "wenbie",    era: "90", title: "吻別",           artist: "張學友",   ids: ["bZn1Pb2Ei64", "mIF-nn_y2_8", "3THSJPd_2pE"] },
+    { key: "wangqing",  era: "90", title: "忘情水",         artist: "劉德華",   ids: ["LlDz9vpIsl4", "bqxWlDjhvYs", "Zh8K5ZfEPNo"] },
+    { key: "xintairuan",era: "90", title: "心太軟",         artist: "任賢齊",   ids: ["ZSWeurc1yMw", "TZTvRNTW7B4", "nLs-HeDUl2E"] },
+    { key: "chaoshui",  era: "90", title: "愛如潮水",       artist: "張信哲",   ids: ["LPl420bwG8c", "ARrLuvEaxDY", "-xHd_ZByNps"] },
+    { key: "nuowei",    era: "90", title: "挪威的森林",     artist: "伍佰",     ids: ["yov7SJrzwa8", "gPpZJlE0Ca8", "kPAtmwT5K1g"] },
+    { key: "hongdou",   era: "90", title: "紅豆",           artist: "王菲",     ids: ["5wmfXve11rM", "WSj5kJDzNPM", "DDoXxauJ_gU"] },
+    { key: "beishang",  era: "90", title: "把悲傷留給自己", artist: "陳昇",     ids: ["7f6305MkDsI", "MI0ClkcSoXs", "LXZrzdDb3KY"] },
+    { key: "dang",      era: "90", title: "當",             artist: "動力火車", ids: ["M2AygY4l_IY", "xlRiSdp3tLw", "cWFImbvbEeQ"] },
+    { key: "danshen",   era: "90", title: "單身情歌",       artist: "林志炫",   ids: ["QOPTkoK0MXI", "g9cR2Ckz5VQ", "mJHPcn33QJk"] },
+    { key: "dahai",     era: "90", title: "大海",           artist: "張雨生",   ids: ["EXaLvBGqQww", "ufHOR9N8dkk", "pv28GJxlAzI"] },
+    { key: "huaxin",    era: "90", title: "花心",           artist: "周華健",   ids: ["IZ8-K3YPVN0", "zZJK7x9OQ4M", "MdrIN0bCN4M"] },
+    { key: "weidao",    era: "90", title: "味道",           artist: "辛曉琪",   ids: ["9BByAxgUCJw", "t9_Hsftvb2E", "Be2gLY4ZlqQ"] },
+    { key: "aihenjd",   era: "90", title: "愛很簡單",       artist: "陶喆",     ids: ["s1nlIafxVYQ", "vetipf5AyWs", "G5NnggQuD1U"] },
+    // ---- 00 年代 ----
+    { key: "yongqi",    era: "00", title: "勇氣",           artist: "梁靜茹",   ids: ["nDchQNPuA0k", "BVpXUyXPKOg", "kF6034y-2sI"] },
+    { key: "qingtian",  era: "00", title: "晴天",           artist: "周杰倫",   ids: ["DYptgVvkVLQ", "SJKoWAd5ySo", "3-DteAHyRnI"] },
+    { key: "qilixiang", era: "00", title: "七里香",         artist: "周杰倫",   ids: ["Bbp9ZaJD_eA", "U8E3j6y__BA", "hXyPo8CV1m8"] },
+    { key: "daoxiang",  era: "00", title: "稻香",           artist: "周杰倫",   ids: ["tffsErz0I2s", "-DSqf9imNMg", "avheRXCA8SA"] },
+    { key: "juejiang",  era: "00", title: "倔強",           artist: "五月天",   ids: ["R2s-H_crYkc", "oXA7iFwu8O8", "wxb1hmRWqpU"] },
+    { key: "zhizu",     era: "00", title: "知足",           artist: "五月天",   ids: ["_o0oeyCtoFA", "IgKNwJfjuhE", "YGl6EYwxNFY"] },
+    { key: "ribuluo",   era: "00", title: "日不落",         artist: "蔡依林",   ids: ["1GA8z-Wliew", "qiIBo1teoq0", "wibFCQiNgp0"] },
+    { key: "superstar", era: "00", title: "Super Star",     artist: "S.H.E",    ids: ["gr5fNKK2FaA", "ShgAspeDRds", "jn65ij4CazQ"] },
+    { key: "yujian",    era: "00", title: "遇見",           artist: "孫燕姿",   ids: ["m4nu_F_9dWU", "WObbdwgB41c", "uX7ihmChODk"] },
+    { key: "weiyi",     era: "00", title: "唯一",           artist: "王力宏",   ids: ["fZF4P7EHoJY", "P7Qv4AV_StM", "WMGSGQYYsIM"] },
+    { key: "jiangnan",  era: "00", title: "江南",           artist: "林俊傑",   ids: ["G97_rOdHcnY", "_GrTlZOGVic", "1bj2pptkeSE"] },
+    { key: "chibang",   era: "00", title: "隱形的翅膀",     artist: "張韶涵",   ids: ["be2wvNFTLMc", "2Xm4rr7HpPA", "1P360eI3ah4"] },
+    { key: "womendeai", era: "00", title: "我們的愛",       artist: "F.I.R.",   ids: ["88D2-J_pk7A", "EqCmAYywrwI", "tIwFiozXx08"] },
+    { key: "xiaoqingge",era: "00", title: "小情歌",         artist: "蘇打綠",   ids: ["in8NNzwFa-s", "7_uM2ys180w", "a8PQBgTHnpw"] },
+    { key: "tonghua",   era: "00", title: "童話",           artist: "光良",     ids: ["bBcp_ljCBGU", "GsWudXPjYlQ", "4FVRpjg-FpA"] }
+];
+const STORAGE_KEY = 'mandopop_9000_playlist_v1';
+const POINTS = 10;
+
+// ===================== 共用工具 =====================
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const isFileProtocol = location.protocol === 'file:';
+const configured = !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL);
+let db = null;
+
+function show(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    $(viewId).classList.add('active');
+}
+function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function rid(n = 12) { const c = 'abcdefghijkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < n; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
+function joinUrl(code) { return `${location.origin}${location.pathname}?room=${code}`; }
+function normalizeText(text) {
+    if (!text) return "";
+    return String(text).toLowerCase()
+        .replace(/[!?,.:;="'\-_\s（）()【】「」《》、，。！？：；…~～·]/g, "")
+        .replace(/著/g, "着").trim();
+}
+function isCorrectGuess(song, guess) {
+    const input = normalizeText(guess);
+    if (!input) return false;
+    const titles = [song.title, ...(song.alias || [])].map(normalizeText);
+    return titles.some(t => t === input || (input.length >= 2 && t.length >= 2 && (t.includes(input) || input.includes(t))) || (t.length === 1 && input.includes(t)));
+}
+function sortedPlayers(obj) {
+    return Object.entries(obj || {}).filter(([, p]) => p && p.name).map(([pid, p]) => ({ pid, ...p }))
+        .sort((a, b) => (b.score || 0) - (a.score || 0) || (b.correct || 0) - (a.correct || 0) || (a.joinedAt || 0) - (b.joinedAt || 0));
+}
+function makeRecognizer(onText, onState) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    const r = new SR();
+    r.lang = 'zh-TW'; r.continuous = false; r.interimResults = false;
+    r.onstart = () => onState('start');
+    r.onresult = e => onText(e.results[0][0].transcript);
+    r.onerror = e => onState('error', e.error);
+    r.onend = () => onState('end');
+    return r;
+}
+
+// ===================== 啟動 =====================
+if (!configured) {
+    show('setupView');
+} else {
+    try {
+        db = getDatabase(initializeApp(FIREBASE_CONFIG));
+    } catch (e) {
+        console.error(e);
+        show('setupView');
+    }
+    if (db) {
+        if (params.get('host')) startHost(params.get('host').toUpperCase());
+        else if (params.get('room')) showJoin(params.get('room').toUpperCase());
+        else show('landingView');
+    }
+}
+
+$('goHostBtn').addEventListener('click', createRoom);
+$('goPlayerBtn').addEventListener('click', () => showJoin(''));
+
+async function createRoom() {
+    $('landingMsg').textContent = '建立房間中…';
+    try {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let tries = 0; tries < 10; tries++) {
+            code = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            const snap = await get(ref(db, `rooms/${code}/meta`));
+            if (!snap.exists()) break;
+        }
+        await set(ref(db, `rooms/${code}`), {
+            meta: { createdAt: serverTimestamp(), hostOnline: true },
+            state: { phase: 'lobby', round: 0 }
+        });
+        history.replaceState(null, '', `?host=${code}`);
+        startHost(code, true);
+    } catch (e) {
+        console.error(e);
+        $('landingMsg').textContent = '建立房間失敗：' + (e.code === 'PERMISSION_DENIED' ? '資料庫規則不允許寫入，請檢查 Realtime Database 規則' : e.message);
+    }
+}
+
+// =====================================================================
+//                              主螢幕
+// =====================================================================
+let H = null; // host context
+
+async function startHost(code, fresh = false) {
+    show('hostView');
+    H = {
+        code, root: `rooms/${code}`,
+        state: { phase: 'lobby', round: 0 },
+        players: {}, playlist: [], currentSong: null, lastSongKey: null,
+        idIndex: 0, loadedVideoId: null, player: null, ready: false,
+        timer: null, duration: '10', snippetPending: false, lastStart: 0,
+        failed: new Set()
+    };
+
+    $('hostCodeSmall').textContent = code;
+    $('hostCodeBig').textContent = code;
+    $('qrBigCode').textContent = code;
+    $('joinUrlText').textContent = joinUrl(code);
+    $('qrBigUrl').textContent = joinUrl(code);
+    try {
+        new QRCode($('qrSmall'), { text: joinUrl(code), width: 96, height: 96 });
+        new QRCode($('qrBig'), { text: joinUrl(code), width: 280, height: 280 });
+    } catch (e) { console.warn('QR 產生失敗', e); }
+
+    if (isFileProtocol) {
+        hostWarn('⚠️ 目前是直接開啟本機檔案（file://）。YouTube 無法在這種方式下播放，學生也無法用 QR code 連到你的電腦。請把 index.html 上傳到 GitHub Pages 或 Cloudflare Pages 後再開。');
+    }
+
+    // 房間若不存在（例如被結束後重新整理）就重建
+    const metaSnap = await get(ref(db, `${H.root}/meta`));
+    if (!metaSnap.exists()) {
+        await set(ref(db, H.root), { meta: { createdAt: serverTimestamp(), hostOnline: true }, state: { phase: 'lobby', round: 0 } });
+    } else {
+        const st = await get(ref(db, `${H.root}/state`));
+        if (st.exists()) H.state = { ...H.state, ...st.val() };
+    }
+
+    onValue(ref(db, '.info/connected'), s => {
+        const ok = s.val() === true;
+        $('connText').textContent = ok ? '已連線' : '連線中斷，重新連線中…';
+        if (ok) {
+            onDisconnect(ref(db, `${H.root}/meta/hostOnline`)).set(false);
+            set(ref(db, `${H.root}/meta/hostOnline`), true);
+        }
+    });
+
+    onValue(ref(db, `${H.root}/players`), s => { H.players = s.val() || {}; renderLeaderboard(); });
+    onChildAdded(ref(db, `${H.root}/guesses`), handleGuess);
+
+    setupPlaylist();
+    setupHostEvents();
+    loadYouTube();
+    $('roundDisplay').textContent = H.state.round || 0;
+    if (fresh) $('qrModal').classList.remove('hidden');
+}
+
+function hostWarn(html) { $('warnBannerText').innerHTML = html; $('warnBanner').classList.remove('hidden'); }
+function hostMsg(msg, color = 'text-cyan-400') { $('hostMsg').textContent = msg; $('hostMsg').className = `text-xs text-center min-h-[18px] ${color}`; }
+function writeState(patch) { Object.assign(H.state, patch); return update(ref(db, `${H.root}/state`), patch); }
+
+// ---------- 排行榜 ----------
+function renderLeaderboard() {
+    const list = sortedPlayers(H.players);
+    const online = list.filter(p => p.online).length;
+    $('deviceCountDisplay').textContent = online;
+    $('playerCountText').textContent = `${online} 台在線 / 共 ${list.length} 台`;
+    const top = list[0];
+    $('leaderDisplay').textContent = top && (top.score || 0) > 0 ? top.name : '—';
+
+    const box = $('leaderboard');
+    if (!list.length) { box.innerHTML = '<div class="text-center text-slate-500 py-8 text-xs">等待設備加入…</div>'; return; }
+    const medals = ['🥇', '🥈', '🥉'];
+    box.innerHTML = list.map((p, i) => `
+        <div class="flex items-center gap-3 p-2.5 rounded-xl border ${i === 0 && p.score > 0 ? 'border-yellow-400/60 bg-yellow-500/10' : 'border-slate-800 bg-slate-950/50'}">
+            <span class="w-7 text-center text-lg">${p.score > 0 && i < 3 ? medals[i] : `<span class="text-slate-500 text-sm">${i + 1}</span>`}</span>
+            <span class="w-2 h-2 rounded-full ${p.online ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
+            <span class="flex-1 truncate font-bold ${p.online ? '' : 'text-slate-500'}">${escapeHtml(p.name)}</span>
+            <span class="text-xs text-slate-400">答對 <b class="text-cyan-300 text-sm">${p.correct || 0}</b> 首</span>
+            <span class="w-12 text-right font-black text-pink-400">${p.score || 0}</span>
+        </div>`).join('');
+}
+
+function addLog(html, cls) {
+    const empty = $('gameLog').querySelector('.empty-hint');
+    if (empty) empty.remove();
+    const d = document.createElement('div');
+    d.className = `p-2.5 rounded-lg border text-xs ${cls}`;
+    d.innerHTML = html;
+    $('gameLog').prepend(d);
+    while ($('gameLog').children.length > 60) $('gameLog').lastChild.remove();
+}
+
+// ---------- 判定搶答 ----------
+function handleGuess(snap) {
+    const g = snap.val();
+    remove(snap.ref);
+    if (!g || !g.pid) return;
+    const resultRef = ref(db, `${H.root}/results/${g.pid}`);
+    const text = String(g.text || '').slice(0, 40);
+
+    if (g.round !== H.state.round || H.state.phase !== 'playing' || !H.currentSong) {
+        if (g.round === H.state.round && H.state.phase === 'revealed') {
+            set(resultRef, { round: g.round, status: 'late', text, at: serverTimestamp() });
+        }
+        return;
+    }
+
+    if (isCorrectGuess(H.currentSong, text)) {
+        update(ref(db, `${H.root}/players/${g.pid}`), { score: increment(POINTS), correct: increment(1) });
+        set(resultRef, { round: g.round, status: 'correct', text, at: serverTimestamp() });
+        addLog(`<span class="text-emerald-400 font-bold">🏆 ${escapeHtml(g.name)} 搶答成功！</span><br><span class="text-slate-400">「${escapeHtml(text)}」 +${POINTS}</span>`, 'border-emerald-500/40 bg-emerald-950/20');
+        revealAnswer({ pid: g.pid, name: g.name });
+    } else {
+        set(resultRef, { round: g.round, status: 'wrong', text, at: serverTimestamp() });
+        addLog(`<span class="text-rose-300">✕ ${escapeHtml(g.name)}：</span><span class="text-slate-400">「${escapeHtml(text)}」</span>`, 'border-rose-500/30 bg-rose-950/10');
+    }
+}
+
+// ---------- 歌單 ----------
+function setupPlaylist() {
+    let saved = null;
+    try { saved = JSON.parse(safeGet(STORAGE_KEY) || 'null'); } catch (e) {}
+    const activeMap = (saved && saved.active) || {};
+    const customs = (saved && Array.isArray(saved.custom)) ? saved.custom : [];
+    H.playlist = DEFAULT_SONGS.map(s => ({ ...s, active: activeMap[s.key] !== false }));
+    customs.forEach(c => { if (c && c.key && Array.isArray(c.ids)) H.playlist.push({ ...c, custom: true, active: activeMap[c.key] !== false }); });
+    $('activeSongCount').textContent = H.playlist.filter(s => s.active).length;
+}
+function savePlaylist() {
+    const active = {};
+    H.playlist.forEach(s => active[s.key] = s.active);
+    const custom = H.playlist.filter(s => s.custom).map(({ key, title, artist, ids }) => ({ key, title, artist, ids }));
+    safeSet(STORAGE_KEY, JSON.stringify({ active, custom }));
+    $('activeSongCount').textContent = H.playlist.filter(s => s.active).length;
+}
+function renderPlaylistModal() {
+    const box = $('songChecklist');
+    box.innerHTML = '';
+    $('modalTotalCount').textContent = H.playlist.length;
+    H.playlist.forEach((song, i) => {
+        const tag = song.custom ? '自訂' : (song.era === '90' ? '90年代' : '00年代');
+        const card = document.createElement('label');
+        card.className = `flex items-center gap-3 p-3 rounded-xl border bg-slate-950/50 cursor-pointer hover:border-pink-500/50 ${song.active ? 'border-pink-500/30' : 'border-slate-800 opacity-60'}`;
+        card.innerHTML = `
+            <input type="checkbox" data-index="${i}" ${song.active ? 'checked' : ''} class="w-4 h-4 accent-pink-500 flex-shrink-0">
+            <div class="truncate text-xs flex-1 min-w-0">
+                <span class="font-bold text-slate-200 block truncate">${escapeHtml(song.artist)} - ${escapeHtml(song.title)}</span>
+                <span class="text-slate-500 text-[10px]">${tag}${H.failed.has(song.key) ? ' · <span class="text-amber-400">本次無法播放</span>' : ''}</span>
+            </div>
+            ${song.custom ? `<button type="button" data-del="${i}" class="text-slate-500 hover:text-rose-400 px-1" title="刪除"><i class="fa-solid fa-trash"></i></button>` : ''}`;
+        box.appendChild(card);
+    });
+    updateModalCount();
+}
+function updateModalCount() { $('modalSelectedCount').textContent = $('songChecklist').querySelectorAll('input:checked').length; }
+function syncChecks() { $('songChecklist').querySelectorAll('input[type="checkbox"]').forEach(cb => H.playlist[+cb.dataset.index].active = cb.checked); }
+function parseYouTubeID(s) {
+    if (!s) return null;
+    const m = s.match(/(?:youtu\.be\/|v\/|embed\/|shorts\/|watch\?v=|&v=)([A-Za-z0-9_-]{11})/);
+    if (m) return m[1];
+    return /^[A-Za-z0-9_-]{11}$/.test(s) ? s : null;
+}
+
+// ---------- YouTube ----------
+function loadYouTube() {
+    window.onYouTubeIframeAPIReady = () => {
+        const vars = { playsinline: 1, controls: 0, disablekb: 1, fs: 0, rel: 0 };
+        if (!isFileProtocol) vars.origin = location.origin;
+        H.player = new YT.Player('youtube-player', {
+            height: '100%', width: '100%', playerVars: vars,
+            events: { onReady: onPlayerReady, onStateChange: onPlayerStateChange, onError: onPlayerError }
+        });
+    };
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { $('statusText').textContent = '無法連線 YouTube'; hostWarn('⚠️ 無法載入 YouTube 播放器，請確認網路或是否被封鎖。'); };
+    document.head.appendChild(s);
+    setTimeout(() => { if (!H.ready) { $('statusText').textContent = '播放器載入逾時'; } }, 12000);
+}
+function onPlayerReady() {
+    H.ready = true;
+    $('playAudioBtn').disabled = false;
+    loadNextRandomSong();
+}
+function onPlayerStateChange(e) {
+    const S = YT.PlayerState;
+    if (e.data === S.PLAYING) {
+        $('leftReel').classList.add('spinning'); $('rightReel').classList.add('spinning');
+        $('statusDot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse";
+        if (H.state.phase !== 'revealed') $('statusText').textContent = "播放中，開放搶答！";
+        const d = H.player.getDuration ? H.player.getDuration() : 0;
+        if (H.snippetPending && d > 0 && H.lastStart > d - 20) H.player.seekTo(Math.floor(d * 0.3), true);
+        if (H.snippetPending) {
+            H.snippetPending = false;
+            if (H.duration !== 'full' && H.state.phase !== 'revealed') startCountdown(parseInt(H.duration, 10));
+        }
+    } else {
+        $('leftReel').classList.remove('spinning'); $('rightReel').classList.remove('spinning');
+        $('statusDot').className = "w-2.5 h-2.5 rounded-full bg-slate-500 inline-block";
+        if (e.data === S.BUFFERING && H.state.phase !== 'revealed') $('statusText').textContent = "緩衝中...";
+    }
+}
+function onPlayerError(e) {
+    const code = e.data;
+    stopTimer();
+    if (code === 153 || isFileProtocol) {
+        $('statusText').textContent = `播放器錯誤 ${code}`;
+        hostWarn(`⚠️ YouTube 回報錯誤 ${code}：網頁需要放在 https 網站上才能播放。`);
+        return;
+    }
+    if (!H.currentSong) return;
+    if (H.idIndex < H.currentSong.ids.length - 1) {
+        H.idIndex++;
+        $('statusText').textContent = `影片無法播放，改用備用來源 (${H.idIndex + 1}/${H.currentSong.ids.length})...`;
+        const revealed = H.state.phase === 'revealed';
+        H.loadedVideoId = H.currentSong.ids[H.idIndex];
+        H.snippetPending = !revealed;
+        H.player.loadVideoById({ videoId: H.loadedVideoId, startSeconds: revealed ? 0 : H.lastStart });
+    } else {
+        H.failed.add(H.currentSong.key);
+        H.snippetPending = false;
+        hostMsg(`《${H.currentSong.title}》的影片都無法播放，自動換下一首（可在歌單換網址）`, 'text-amber-400');
+        setTimeout(loadNextRandomSong, 1200);
+    }
+}
+function fmt(s) { return `00:${String(Math.max(0, s)).padStart(2, '0')}`; }
+function startCountdown(sec) {
+    let left = sec;
+    $('timeRemainingText').textContent = fmt(left);
+    H.timer = setInterval(() => {
+        left--;
+        $('timeRemainingText').textContent = fmt(left);
+        if (left <= 0) { stopAudio(); $('statusText').textContent = "片段結束，可再按播放聽別段"; }
+    }, 1000);
+}
+function stopTimer() { if (H.timer) { clearInterval(H.timer); H.timer = null; } }
+function stopAudio() { stopTimer(); if (H.player && H.ready && H.player.pauseVideo) H.player.pauseVideo(); }
+
+// ---------- 遊戲流程 ----------
+function loadNextRandomSong() {
+    stopAudio();
+    H.snippetPending = false;
+    $('revealedOverlay').classList.add('hidden');
+    $('playerMask').classList.remove('hidden');
+    $('playerContainer').classList.add('opacity-0', 'pointer-events-none');
+
+    let pool = H.playlist.filter(s => s.active && !H.failed.has(s.key));
+    if (!pool.length) {
+        H.currentSong = null;
+        $('statusText').textContent = "沒有可播放的歌曲";
+        hostMsg("歌單中沒有可播放的歌曲，請到「歌單」勾選或新增。", 'text-amber-400');
+        return;
+    }
+    if (pool.length > 1) pool = pool.filter(s => s.key !== H.lastSongKey);
+    H.currentSong = pool[Math.floor(Math.random() * pool.length)];
+    H.lastSongKey = H.currentSong.key;
+    H.idIndex = 0;
+    H.loadedVideoId = null;
+
+    const round = (H.state.round || 0) + 1;
+    writeState({ phase: 'ready', round, winnerPid: null, winnerName: null, answer: null });
+    $('roundDisplay').textContent = round;
+    $('tapeLabel').textContent = `SONG ${round}: 90s & 00s`;
+    $('timeRemainingText').textContent = H.duration === 'full' ? '全曲模式' : `限時 ${H.duration} 秒`;
+    $('statusText').textContent = "就緒，按播放開始搶答";
+    hostMsg('');
+}
+
+function playSnippet() {
+    if (!H.ready) { hostMsg('播放器還在載入，請稍候…', 'text-amber-400'); return; }
+    if (!H.currentSong) { loadNextRandomSong(); if (!H.currentSong) return; }
+    if (H.state.phase === 'revealed') return;
+    if (H.state.phase !== 'playing') writeState({ phase: 'playing' });
+
+    stopTimer();
+    H.lastStart = H.duration === 'full' ? 0 : Math.floor(Math.random() * 40) + 20;
+    H.snippetPending = true;
+    H.loadedVideoId = H.currentSong.ids[H.idIndex];
+    H.player.loadVideoById({ videoId: H.loadedVideoId, startSeconds: H.lastStart });
+    H.player.unMute && H.player.unMute();
+    H.player.setVolume && H.player.setVolume(100);
+    $('statusText').textContent = "載入歌曲中...";
+}
+
+function revealAnswer(winner) {
+    if (!H.currentSong || H.state.phase === 'revealed') return;
+    H.snippetPending = false;
+    stopTimer();
+    const answer = `${H.currentSong.artist} - 《${H.currentSong.title}》`;
+    writeState({ phase: 'revealed', answer, winnerPid: winner ? winner.pid : null, winnerName: winner ? winner.name : null });
+
+    $('revealedTitle').textContent = answer;
+    $('revealedWinner').textContent = winner ? `🏆 ${winner.name} 搶答成功！+${POINTS}` : '😅 沒有人答對，答案是';
+    $('revealedOverlay').classList.remove('hidden');
+    $('playerMask').classList.add('hidden');
+    $('playerContainer').classList.remove('opacity-0', 'pointer-events-none');
+    $('statusText').textContent = winner ? '🎉 有人答對了！' : '答案揭曉';
+    $('timeRemainingText').textContent = '--:--';
+
+    if (H.player && H.ready) {
+        if (H.loadedVideoId) H.player.playVideo();
+        else { H.loadedVideoId = H.currentSong.ids[H.idIndex]; H.player.loadVideoById({ videoId: H.loadedVideoId, startSeconds: 0 }); }
+    }
+}
+
+function giveUp() {
+    if (!H.currentSong || H.state.phase === 'revealed') return;
+    addLog(`<span class="text-amber-400 font-bold">🏳️ 公布答案：${escapeHtml(H.currentSong.artist)} - ${escapeHtml(H.currentSong.title)}</span>`, 'border-amber-500/40 bg-amber-950/20');
+    revealAnswer(null);
+}
+
+// ---------- 主螢幕事件 ----------
+function setupHostEvents() {
+    $('playAudioBtn').addEventListener('click', playSnippet);
+    $('giveUpBtn').addEventListener('click', giveUp);
+    $('nextSongBtn').addEventListener('click', loadNextRandomSong);
+    $('nextSongRevealedBtn').addEventListener('click', loadNextRandomSong);
+    $('toggleShowVideoBtn').addEventListener('click', () => $('playerContainer').classList.toggle('opacity-0'));
+    $('showQrBtn').addEventListener('click', () => $('qrModal').classList.remove('hidden'));
+    $('closeQrBtn').addEventListener('click', () => $('qrModal').classList.add('hidden'));
+
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', e => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.className = "mode-btn px-3 py-1 rounded-full text-xs font-bold bg-slate-800 border border-slate-700 text-slate-300");
+        e.currentTarget.className = "mode-btn px-3 py-1 rounded-full text-xs font-bold bg-pink-600/30 border border-pink-500 text-pink-300";
+        H.duration = e.currentTarget.dataset.duration;
+        $('timeRemainingText').textContent = H.duration === 'full' ? '全曲模式' : `限時 ${H.duration} 秒`;
+    }));
+
+    $('resetScoresBtn').addEventListener('click', () => {
+        if (!confirm('確定要把所有設備的分數歸零嗎？')) return;
+        const patch = {};
+        Object.keys(H.players).forEach(pid => { patch[`${pid}/score`] = 0; patch[`${pid}/correct`] = 0; });
+        update(ref(db, `${H.root}/players`), patch);
+    });
+    $('clearOfflineBtn').addEventListener('click', () => {
+        const patch = {};
+        Object.entries(H.players).forEach(([pid, p]) => { if (!p.online) patch[pid] = null; });
+        if (!Object.keys(patch).length) { hostMsg('目前沒有離線設備'); return; }
+        update(ref(db, `${H.root}/players`), patch);
+    });
+    $('endRoomBtn').addEventListener('click', async () => {
+        if (!confirm('結束後所有設備會斷線、分數清除。確定結束？')) return;
+        await remove(ref(db, H.root));
+        location.href = location.pathname;
+    });
+
+    // 歌單
+    $('playlistModalBtn').addEventListener('click', () => { renderPlaylistModal(); $('playlistModal').classList.remove('hidden'); });
+    $('closeModalBtn').addEventListener('click', () => $('playlistModal').classList.add('hidden'));
+    $('songChecklist').addEventListener('change', updateModalCount);
+    $('songChecklist').addEventListener('click', e => {
+        const del = e.target.closest('[data-del]');
+        if (!del) return;
+        e.preventDefault();
+        syncChecks();
+        H.playlist.splice(+del.dataset.del, 1);
+        renderPlaylistModal();
+    });
+    const setChecks = fn => { $('songChecklist').querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = fn(H.playlist[+cb.dataset.index])); updateModalCount(); };
+    $('selectAllBtn').addEventListener('click', () => setChecks(() => true));
+    $('deselectAllBtn').addEventListener('click', () => setChecks(() => false));
+    $('select90Btn').addEventListener('click', () => setChecks(s => s.era === '90'));
+    $('select00Btn').addEventListener('click', () => setChecks(s => s.era === '00'));
+    $('savePlaylistBtn').addEventListener('click', () => {
+        syncChecks(); savePlaylist();
+        $('playlistModal').classList.add('hidden');
+        if (H.state.phase !== 'playing') loadNextRandomSong();
+    });
+    $('addCustomSongBtn').addEventListener('click', () => {
+        const title = $('customTitleInput').value.trim();
+        const artist = $('customArtistInput').value.trim();
+        const ytId = parseYouTubeID($('customUrlInput').value.trim());
+        if (!title || !artist || !ytId) { alert('請填寫完整的歌曲名稱、歌手，以及有效的 YouTube 網址或影片 ID！'); return; }
+        syncChecks();
+        H.playlist.push({ key: `custom_${ytId}_${Date.now()}`, title, artist, ids: [ytId], active: true, custom: true });
+        $('customTitleInput').value = ''; $('customArtistInput').value = ''; $('customUrlInput').value = '';
+        renderPlaylistModal();
+    });
+}
+
+// =====================================================================
+//                              玩家
+// =====================================================================
+let P = null;
+
+function showJoin(code) {
+    show('joinView');
+    $('joinCodeInput').value = code || '';
+    $('joinNameInput').value = safeGet('mg_player_name') || '';
+    (code ? $('joinNameInput') : $('joinCodeInput')).focus();
+}
+$('joinBtn').addEventListener('click', joinRoom);
+$('joinNameInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) joinRoom(); });
+$('joinCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) $('joinNameInput').focus(); });
+
+async function joinRoom() {
+    const code = $('joinCodeInput').value.trim().toUpperCase();
+    const name = $('joinNameInput').value.trim().slice(0, 12);
+    if (code.length !== 4) { $('joinMsg').textContent = '請輸入 4 碼房間代碼'; return; }
+    if (!name) { $('joinMsg').textContent = '請輸入設備名稱'; return; }
+    $('joinMsg').textContent = '連線中…';
+    try {
+        const meta = await get(ref(db, `rooms/${code}/meta`));
+        if (!meta.exists()) { $('joinMsg').textContent = '找不到這個房間，請確認代碼'; return; }
+
+        safeSet('mg_player_name', name);
+        let pid = safeGet(`mg_pid_${code}`);
+        if (!pid) { pid = rid(); safeSet(`mg_pid_${code}`, pid); }
+
+        const pPath = `rooms/${code}/players/${pid}`;
+        const existing = await get(ref(db, pPath));
+        if (existing.exists()) await update(ref(db, pPath), { name, online: true });
+        else await set(ref(db, pPath), { name, score: 0, correct: 0, online: true, joinedAt: serverTimestamp() });
+
+        history.replaceState(null, '', `?room=${code}`);
+        startPlayer(code, pid, name);
+    } catch (e) {
+        console.error(e);
+        $('joinMsg').textContent = '加入失敗：' + e.message;
+    }
+}
+
+function startPlayer(code, pid, name) {
+    show('playerView');
+    P = { code, pid, name, root: `rooms/${code}`, state: { phase: 'lobby', round: 0 }, lastSend: 0, recording: false, pending: false };
+    $('pName').textContent = name;
+    $('pCode').textContent = code;
+
+    onValue(ref(db, '.info/connected'), s => {
+        const ok = s.val() === true;
+        $('pConn').textContent = ok ? '已連線' : '重新連線中…';
+        if (ok) {
+            onDisconnect(ref(db, `${P.root}/players/${pid}/online`)).set(false);
+            update(ref(db, `${P.root}/players/${pid}`), { name, online: true });
+        }
+    });
+
+    onValue(ref(db, `${P.root}/meta`), s => {
+        if (!s.exists()) {
+            $('pStatusIcon').textContent = '👋'; $('pStatusText').textContent = '房間已結束';
+            $('pStatusSub').textContent = '謝謝參加！'; setInput(false);
+            return;
+        }
+        $('pHostOffline').classList.toggle('hidden', s.val().hostOnline !== false);
+    });
+
+    onValue(ref(db, `${P.root}/state`), s => {
+        const prevRound = P.state.round;
+        P.state = s.val() || { phase: 'lobby', round: 0 };
+        if (P.state.round !== prevRound) { $('pFeedback').textContent = ''; $('pGuessInput').value = ''; P.pending = false; }
+        renderPlayerState();
+    });
+
+    onValue(ref(db, `${P.root}/results/${pid}`), s => {
+        const r = s.val();
+        if (!r || r.round !== P.state.round) return;
+        P.pending = false;
+        const fb = $('pFeedback');
+        if (r.status === 'correct') { fb.textContent = `🎉 答對了！+${POINTS} 分`; fb.className = 'text-center font-bold min-h-[24px] text-emerald-400 pop'; }
+        else if (r.status === 'wrong') {
+            fb.textContent = `✕「${r.text}」不對喔，再試試！`; fb.className = 'text-center font-bold min-h-[24px] text-rose-400';
+            $('pGuessInput').classList.remove('shake'); void $('pGuessInput').offsetWidth; $('pGuessInput').classList.add('shake');
+            $('pGuessInput').select();
+        }
+        else if (r.status === 'late') { fb.textContent = '😣 慢了一步，已經有人答對了'; fb.className = 'text-center font-bold min-h-[24px] text-amber-400'; }
+        if (P.state.phase === 'playing') setInput(true);
+    });
+
+    onValue(ref(db, `${P.root}/players`), s => {
+        const list = sortedPlayers(s.val());
+        const idx = list.findIndex(p => p.pid === pid);
+        const me = list[idx];
+        $('pScore').textContent = me ? (me.score || 0) : 0;
+        $('pRank').textContent = idx >= 0 ? `第${idx + 1}名` : '-';
+        $('pTop').innerHTML = list.slice(0, 5).map((p, i) => `
+            <div class="flex justify-between ${p.pid === pid ? 'text-cyan-300 font-bold' : 'text-slate-300'}">
+                <span class="truncate">${i + 1}. ${escapeHtml(p.name)}</span>
+                <span>答對 ${p.correct || 0} 首 · ${p.score || 0} 分</span>
+            </div>`).join('') || '<p class="text-slate-500 text-xs">還沒有人</p>';
+    });
+
+    // 語音
+    P.rec = makeRecognizer(text => {
+        $('pGuessInput').value = text;
+        sendGuess();
+    }, (st, err) => {
+        const btn = $('pVoiceBtn');
+        if (st === 'start') { P.recording = true; btn.classList.add('bg-red-600', 'recording-active'); btn.innerHTML = '<i class="fa-solid fa-microphone"></i> 聆聽中…'; }
+        else {
+            P.recording = false; btn.classList.remove('bg-red-600', 'recording-active'); btn.innerHTML = '<i class="fa-solid fa-microphone"></i> 用說的';
+            if (st === 'error' && err !== 'no-speech' && err !== 'aborted') {
+                $('pFeedback').textContent = err === 'not-allowed' ? '麥克風權限被拒絕，請允許麥克風或改用打字' : '語音辨識失敗，請改用打字';
+                $('pFeedback').className = 'text-center font-bold min-h-[24px] text-amber-400';
+            }
+        }
+    });
+    if (!P.rec) { $('pVoiceBtn').innerHTML = '<i class="fa-solid fa-microphone-slash"></i> 不支援語音'; }
+
+    $('pVoiceBtn').addEventListener('click', () => {
+        if (!P.rec) return;
+        if (P.recording) P.rec.stop(); else { try { P.rec.start(); } catch (e) {} }
+    });
+    $('pSubmitBtn').addEventListener('click', sendGuess);
+    $('pGuessInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) sendGuess(); });
+}
+
+function setInput(on) {
+    $('pGuessInput').disabled = !on;
+    $('pSubmitBtn').disabled = !on;
+    $('pVoiceBtn').disabled = !on || !P.rec;
+}
+
+function renderPlayerState() {
+    const st = P.state;
+    const card = $('pStatusCard');
+    $('pRound').textContent = st.round ? `第 ${st.round} 首` : '';
+    card.className = 'rounded-2xl p-5 text-center border-2 bg-slate-900/80 pop ';
+    if (st.phase === 'playing') {
+        card.className += 'border-pink-500';
+        $('pStatusIcon').textContent = '🎵';
+        $('pStatusText').textContent = '歌曲播放中，快搶答！';
+        $('pStatusSub').textContent = '輸入或說出歌名';
+        setInput(true);
+        if (document.activeElement !== $('pGuessInput') && !P.rec) $('pGuessInput').focus();
+    } else if (st.phase === 'revealed') {
+        const mine = st.winnerPid === P.pid;
+        card.className += mine ? 'border-emerald-400' : 'border-yellow-400';
+        $('pStatusIcon').textContent = mine ? '🏆' : (st.winnerName ? '👏' : '😅');
+        $('pStatusText').textContent = mine ? '你搶答成功！' : (st.winnerName ? `${st.winnerName} 搶答成功` : '沒有人答對');
+        $('pStatusSub').textContent = st.answer ? `答案：${st.answer}` : '';
+        setInput(false);
+    } else if (st.phase === 'ready') {
+        card.className += 'border-slate-700';
+        $('pStatusIcon').textContent = '🎧';
+        $('pStatusText').textContent = '下一首準備中…';
+        $('pStatusSub').textContent = '等老師按播放就能搶答';
+        setInput(false);
+    } else {
+        card.className += 'border-slate-700';
+        $('pStatusIcon').textContent = '⏳';
+        $('pStatusText').textContent = '等待老師開始';
+        $('pStatusSub').textContent = '已加入，請看大螢幕';
+        setInput(false);
+    }
+}
+
+function sendGuess() {
+    const text = $('pGuessInput').value.trim();
+    if (!text || P.state.phase !== 'playing') return;
+    const now = Date.now();
+    if (now - P.lastSend < 1200) { $('pFeedback').textContent = '慢一點，1 秒後再送'; $('pFeedback').className = 'text-center font-bold min-h-[24px] text-slate-400'; return; }
+    P.lastSend = now;
+    P.pending = true;
+    push(ref(db, `${P.root}/guesses`), { pid: P.pid, name: P.name, text: text.slice(0, 40), round: P.state.round, ts: serverTimestamp() });
+    $('pFeedback').textContent = '已送出，判定中…';
+    $('pFeedback').className = 'text-center font-bold min-h-[24px] text-cyan-300';
+}
+</script>
+</body>
+</html>
